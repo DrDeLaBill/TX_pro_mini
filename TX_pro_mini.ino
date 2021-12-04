@@ -219,8 +219,12 @@ void loop() {
   //    sleep.sleepDelay(sleepTime, abortSleep); //sleep for: sleepTime
   //
   //  }
+
+  // спим 1 минуту, но можем проснуться по прерыванию
+  power.sleepDelay(1 * 60 * 1000);
 }
 
-void isr_charge_up() {
-  
+// обработчик аппаратного прерывания
+void isr_charge_up() { 
+  power.wakeUp();  
 }
