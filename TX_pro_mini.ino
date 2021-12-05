@@ -16,7 +16,7 @@
 #define BAT_CHARGED_ADC 824       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
 #define BAT_DISCHARGED_ADC  634   // значeние ацп, при котором напряжение на акб 3.0 вольт (разряжен)
 
-#define BUF_SIZE        5
+#define BUF_SIZE        13
 
 
 OneWire oneWire(ONE_WIRE_BUS);
@@ -42,16 +42,12 @@ bool no_sleeping_flag = false;        // флаг разрешения уход�
 
 bool RF24_inited = true;              // флаг инициализации
 
-//boolean abortSleep;   //cancel sleep cycle
-//int sleepCycleCount; //the number of times awake then asleep
-//unsigned long sleepTime; //how long you want the arduino to sleep
-
-
 extern uint8_t RusFont[];
 extern uint8_t BigNumbers[];
 //extern uint8_t DotMatrix_M_Slash[4184];
 
 void isr_charge_up();
+void make_temp_string(char *arrayTemp, float tempC);
 
 void setup() {
   
@@ -63,17 +59,9 @@ void setup() {
 
   //детектор подключения ЗУ с внутренней подтяжкой
   pinMode(BAT_CHRG_PIN, INPUT_PULLUP);
-  
-  
-  
-//  abortSleep = false; //can be used to cancel the sleep cycle
-//  sleepTime = 60000; //set sleep time in ms, max sleep time is 49.7 days
-  // sleep.sleepPinInterrupt(BAT_CHRG_PIN, LOW); //(номер вывода прерывания, состояние прерывания)
-
-  //radio.powerUp();
 
   myGLCD.InitLCD(70);          //запуск LCD контраст 65
-  myGLCD.setFont(BigNumbers);
+  myGLCD.setFont(RusFont);
 //  myGLCD.setTextSize(1);  // установка размера шрифта
   
 //  display.begin();
@@ -107,9 +95,6 @@ void setup() {
 
 
 void loop() {
-
-  int i = 0;
-
   bat_adc = analogRead(BAT_ADC_PIN);
 
   if (bat_adc >= BAT_CHARGED_ADC) {
@@ -124,31 +109,10 @@ void loop() {
   //radio.powerDown();
 
   char arrayTemp[BUF_SIZE] = {0};
-
-  if (tempC == float(0)) {
-    itoa(tempC, arrayTemp, DEC);
-  }  else {
-    itoa(tempC, arrayTemp + 1, DEC);   //преобразоавние  из int в массив char во вторую ячейку, чтобы оставить место под знак
-    
-    // Выставление + или - в зависимости от температуры
-    if (tempC == float(0)) {
-      arrayTemp[0] = ' ';
-    }else if (tempC > float(0)) {
-      arrayTemp[0] = '+';
-    } else if (tempC < float(0)) {
-      arrayTemp[0] = '-';
-    }
-  }
-
-  for (i = 0; i <= BUF_SIZE; i++) {
-    if (arrayTemp[i] == 0) {
-      arrayTemp[i] = 'C';
-    }
-  }
-
+  make_temp_string(arrayTemp, tempC);
 //  myGLCD.clrScr();
 //  myGLCD.printNumI(tempC, CENTER, 13);
-  myGLCD.print(arrayTemp, CENTER, 13);
+  myGLCD.print(arrayTemp, CENTER, BUF_SIZE);
   
 //  display.clearDisplay();
 //  display.fillRect(65, 1, 19, 7, 1);
@@ -209,22 +173,34 @@ void loop() {
 //    display.display();
 //  }
 
-
-  Serial.print("no_sleeping_flag: ");
-  Serial.println(no_sleeping_flag);
-  //  if (no_sleeping_flag == 0) {
-  //    Serial.println("Ухожу в сон ");
-  //    digitalWrite(NRF2401, LOW);  //Выключение питания на передатчике
-  //    sleep.pwrDownMode(); //set sleep mode
-  //    sleep.sleepDelay(sleepTime, abortSleep); //sleep for: sleepTime
-  //
-  //  }
-
   // спим 1 минуту, но можем проснуться по прерыванию
-  power.sleepDelay(1 * 60 * 1000);
+  uint32_t mls_delay = 60000;
+  Serial.print("Sleep mls: ");
+  Serial.println(mls_delay);
+  delay(200);
+  power.sleepDelay(mls_delay);
+  Serial.println("Wake up");
 }
 
 // обработчик аппаратного прерывания
 void isr_charge_up() { 
   power.wakeUp();  
+}
+
+void make_temp_string(char *arrayTemp, float tempC) {
+  String temp_string_maker = "";
+  
+  // Выставление + или - в зависимости от температуры
+  if (tempC > float(0)) {
+    temp_string_maker += '+';
+  } else if (tempC < float(0)) {
+    temp_string_maker += '-';
+  }
+
+  temp_string_maker += String(int(tempC)) + "C";
+
+  strcpy(arrayTemp, temp_string_maker.c_str());
+  
+  Serial.print("Output temperature string: ");
+  Serial.println(arrayTemp);
 }
