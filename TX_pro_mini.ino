@@ -2,52 +2,56 @@
 #include "RF24.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <LCD5110_SSVS.h>
 #include <GyverPower.h>
+//#include "TemperatureSensor.h"
+#include "LCD5110.h"
+#include "fonts.h"
 
-#define ONE_WIRE_BUS    A2        // DS18B20
-#define BAT_ADC_PIN     A1        // пин подключения к ацп напряжения с акб
-#define BAT_CHRG_PIN    2         // пин подключения к ацп. детектор подключения зу
-#define BAT_STDBY_PIN   A7        // пин подключения к ацп. окончание зарядки
-#define NRF2401_POWER   A0        // пин питания nrf24L01
-#define NRF24_CE_PIN    10
-#define NRF24_CSN_PIN   9 
+#define ONE_WIRE_BUS        A2        // DS18B20
+#define BAT_ADC_PIN         A1        // пин подключения к ацп напряжения с акб
+#define BAT_CHRG_PIN        2         // пин подключения к ацп. детектор подключения зу
+#define BAT_STDBY_PIN       A7        // пин подключения к ацп. окончание зарядки
+#define NRF2401_POWER       A0        // пин питания nrf24L01
+#define NRF24_CE_PIN        10
+#define NRF24_CSN_PIN       9 
 
-#define BAT_CHARGED_ADC 824       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
-#define BAT_DISCHARGED_ADC  634   // значeние ацп, при котором напряжение на акб 3.0 вольт (разряжен)
+#define BAT_CHARGED_ADC     824       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
+#define BAT_DISCHARGED_ADC  634       // значeние ацп, при котором напряжение на акб 3.0 вольт (разряжен)
 
-#define BUF_SIZE        13
+#define BUF_SIZE            13
 
+#define BATERY_POSX         0
+#define BATERY_POSY         0
+#define BATERY_HEIGHT       8
+#define BATERY_WIDTH        14
 
 OneWire oneWire(ONE_WIRE_BUS);
-// Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
-
 RF24 radio(NRF24_CE_PIN, NRF24_CSN_PIN);    // nrf24l01
-
-//Adafruit_PCD8544 display = Adafruit_PCD8544(4, 5, 6, 24, 8);
-//Sleep sleep;
 LCD5110 myGLCD(4, 5, 6, 8);           // CLK, DIN, DC, RST
 
 const uint32_t sleep_time = 60000;    // время сна в миллисекундах
 uint32_t t_timer_on_RX = 0;
-float tempReload = -150.00;
+float tempReload = -100.00;
 
 uint16_t bat_adc = 0;                 // значение с ацп 0...1023 напряжение с акб
-//const uint8_t x_MaxSize = 84;
-//const uint8_t y_MaxSize = 48;
 
 uint8_t iStep = 0;                    // шаг перемещения линии зарядки
 bool no_sleeping_flag = false;        // флаг разрешения ухода в сон: "1" запрет, "0" разрешено
 
 bool RF24_inited = true;              // флаг инициализации
 
-extern uint8_t RusFont[];
 extern uint8_t BigNumbers[];
+extern const uint8_t LCDFont[];
+extern const uint8_t Batery[];
+extern const uint8_t LowBatery[];
+extern const uint8_t ChargeBatery[];
 //extern uint8_t DotMatrix_M_Slash[4184];
 
 void isr_charge_up();
+void isr_charge_down();
 void make_temp_string(char *arrayTemp, float tempC);
+void draw_batery();
 
 void setup() {
   
@@ -57,11 +61,8 @@ void setup() {
   pinMode(BAT_STDBY_PIN, INPUT);
   pinMode(NRF2401_POWER, OUTPUT);
 
-  //детектор подключения ЗУ с внутренней подтяжкой
-  pinMode(BAT_CHRG_PIN, INPUT_PULLUP);
-
   myGLCD.InitLCD(70);          //запуск LCD контраст 65
-  myGLCD.setFont(RusFont);
+  myGLCD.setFont(LCDFont);
 //  myGLCD.setTextSize(1);  // установка размера шрифта
   
 //  display.begin();
@@ -84,15 +85,16 @@ void setup() {
   radio.setPALevel(RF24_PA_HIGH);
   radio.openWritingPipe(0x7878787878LL);
 
+  //детектор подключения ЗУ с внутренней подтяжкой
+  pinMode(BAT_CHRG_PIN, INPUT_PULLUP);
   // аппаратное прерывание: подключение зарядки
-  // подключаем прерывание на пин D2 (Arduino NANO)
-  attachInterrupt(0, isr_charge_up, RISING);
-
+  // подключаем прерывание на пин D2 (Arduino NANO), при подключении
+  attachInterrupt(0, isr_charge_up, FALLING);
+  // подключаем прерывание на пин D2 (Arduino NANO), при отключении
+  attachInterrupt(0, isr_charge_down, RISING);
   // глубокий сон
   power.setSleepMode(POWERDOWN_SLEEP);
 }
-
-
 
 void loop() {
   bat_adc = analogRead(BAT_ADC_PIN);
@@ -113,6 +115,7 @@ void loop() {
 //  myGLCD.clrScr();
 //  myGLCD.printNumI(tempC, CENTER, 13);
   myGLCD.print(arrayTemp, CENTER, BUF_SIZE);
+  draw_batery();
   
 //  display.clearDisplay();
 //  display.fillRect(65, 1, 19, 7, 1);
@@ -185,6 +188,12 @@ void loop() {
 // обработчик аппаратного прерывания
 void isr_charge_up() { 
   power.wakeUp();  
+  Serial.println("Sensor charging!");
+}
+
+void isr_charge_down() {
+  power.wakeUp();  
+  Serial.println("Sensor stop charging!");
 }
 
 void make_temp_string(char *arrayTemp, float tempC) {
@@ -203,4 +212,13 @@ void make_temp_string(char *arrayTemp, float tempC) {
   
   Serial.print("Output temperature string: ");
   Serial.println(arrayTemp);
+}
+
+void draw_batery() {
+  if (digitalRead(BAT_CHRG_PIN) == LOW)
+    myGLCD.drawBitmap(BATERY_POSX, BATERY_POSY, ChargeBatery, BATERY_WIDTH, BATERY_HEIGHT);
+  else if (bat_adc == BAT_CHARGED_ADC)
+    myGLCD.drawBitmap(BATERY_POSX, BATERY_POSY, Batery, BATERY_WIDTH, BATERY_HEIGHT);
+  else
+    myGLCD.drawBitmap(BATERY_POSX, BATERY_POSY, LowBatery, BATERY_WIDTH, BATERY_HEIGHT);
 }
