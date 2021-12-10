@@ -13,8 +13,8 @@
 #define NRF2401_POWER       A0        // пин питания nrf24L01
 #define NRF24_CE_PIN        10
 #define NRF24_CSN_PIN       9 
-#define BAT_CHARGED_ADC     824       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
-#define BAT_DISCHARGED_ADC  634       // значeние ацп, при котором напряжение на акб 3.0 вольт (разряжен)
+#define BAT_CHARGED_ADC     963       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
+#define BAT_DISCHARGED_ADC  573       // значeние ацп, при котором напряжение на акб 2.5 вольт (разряжен)
 #define NRF24_VOLTAGE_DELAY 1500      // задержка млс для ожидания установки напряжения на понижайке
 #define BUF_SIZE            13        // длинна строки температуры
 #define SLEEP_TIME          60000     // время сна в миллисекундах
@@ -54,6 +54,8 @@ void batery_report();
 
 void setup() {
   Serial.begin(115200);
+
+  analogReference(INTERNAL);
   
   pinMode(BAT_ADC_PIN, INPUT);
   pinMode(BAT_STDBY_PIN, INPUT);
