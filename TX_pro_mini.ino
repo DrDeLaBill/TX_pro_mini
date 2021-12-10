@@ -1,5 +1,4 @@
-#include <nRF24L01.h>
-#include "RF24.h"
+#include <RF24.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <GyverPower.h>
