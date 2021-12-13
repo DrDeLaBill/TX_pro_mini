@@ -93,10 +93,10 @@ void loop() {
   bat_adc = analogRead(BAT_ADC_PIN);
 
   sensors.requestTemperatures();
-  short tempC = sensors.getTempCByIndex(0);
+  float tempC = sensors.getTempCByIndex(0);
   radio.write(&tempC, sizeof(tempC));
 
-  draw_temperature(tempC);
+  draw_temperature(short(tempC));
   draw_batery();
 
   batery_report();
