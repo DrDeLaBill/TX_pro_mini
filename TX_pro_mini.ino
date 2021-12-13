@@ -14,7 +14,7 @@
 #define NRF24_CSN_PIN       9 
 #define BAT_CHARGED_ADC     963       // значeние ацп, при котором напряжение на акб 4.2 вольт (заряжен)
 #define BAT_DISCHARGED_ADC  573       // значeние ацп, при котором напряжение на акб 2.5 вольт (разряжен)
-#define NRF24_VOLTAGE_DELAY 1500      // задержка млс для ожидания установки напряжения на понижайке
+#define NRF24_VOLTAGE_DELAY 4000      // задержка млс для ожидания установки напряжения на понижайке
 #define BUF_SIZE            13        // длинна строки температуры
 #define SLEEP_TIME          60000     // время сна в миллисекундах
 // настройка изображения аккумулятора
@@ -163,18 +163,18 @@ void draw_batery() {
   uint16_t batery_charge_range = BAT_CHARGED_ADC - BAT_DISCHARGED_ADC;
   uint8_t *batery_pic;
   if (is_charging()) {
-    Serial.println("100%");
+    Serial.println("Charging");
     batery_pic = ChargeBatery;
   }
-  else if (bat_adc > 3/4 * batery_charge_range + BAT_DISCHARGED_ADC) {
+  else if (bat_adc > 0.75 * float(batery_charge_range) + BAT_DISCHARGED_ADC) {
     Serial.println("100%");
     batery_pic = Batery;
   }
-  else if (bat_adc > 1/2 * batery_charge_range + BAT_DISCHARGED_ADC) {
+  else if (bat_adc > 0.5 * float(batery_charge_range) + BAT_DISCHARGED_ADC) {
     Serial.println("75%");
     batery_pic = Batery75;
   }
-  else if (bat_adc > 1/4 * batery_charge_range + BAT_DISCHARGED_ADC) {
+  else if (bat_adc > 0.25 * float(batery_charge_range) + BAT_DISCHARGED_ADC) {
     Serial.println("50%");
     batery_pic = Batery50;
   }
